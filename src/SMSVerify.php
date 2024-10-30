@@ -5,7 +5,7 @@ namespace Wisdech\SMSVerify;
 use Illuminate\Support\Facades\Cache;
 use TencentCloud\Common\Credential;
 use TencentCloud\Sms\V20210111\Models\SendSmsRequest;
-use TencentCloud\Sms\V20210111\Models\SendSmsResponse;
+use TencentCloud\Sms\V20210111\Models\SendStatus;
 use TencentCloud\Sms\V20210111\SmsClient;
 use Wisdech\SMSVerify\Exception\SMSException;
 
@@ -109,14 +109,12 @@ class SMSVerify
         $response = $smsClient->sendSms($request);
 
         $status = $response->getSendStatusSet();
-        if (sizeof($status) > 0 && key_exists('Code', $status[0])) {
+        if (sizeof($status) > 0 && is_a($status[0], SendStatus::class)) {
 
-            if ($status[0]['Code'] == 'Ok') {
+            if ($status[0]->getCode() == 'Ok') {
                 return true;
             } else {
-
-                $message = $status[0]['Message'];
-                throw new SMSException('腾讯云', $message);
+                throw new SMSException('腾讯云', $status[0]->getMessage());
             }
         }
 

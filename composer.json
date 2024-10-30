@@ -1,0 +1,33 @@
+{
+    "name": "wisdech/laravel-smsverify",
+    "description": "Laravel 短信验证码接口",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Wisdech\\SMSVerify\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Beijing Wisdech Technology Co., Ltd.",
+            "email": "info@wisdech.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.27",
+        "tencentcloud/sms": "^3.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Wisdech\\SMSVerify\\SMSVerifyProvider"
+            ],
+            "aliases": {
+                "SMSVerify": "Wisdech\\SMSVerify\\Facade\\SMS"
+            }
+        }
+    }
+}

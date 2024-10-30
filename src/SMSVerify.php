@@ -5,7 +5,9 @@ namespace Wisdech\SMSVerify;
 use Illuminate\Support\Facades\Cache;
 use TencentCloud\Common\Credential;
 use TencentCloud\Sms\V20210111\Models\SendSmsRequest;
+use TencentCloud\Sms\V20210111\Models\SendSmsResponse;
 use TencentCloud\Sms\V20210111\SmsClient;
+use Wisdech\SMSVerify\Exception\SMSException;
 
 class SMSVerify
 {
@@ -20,9 +22,10 @@ class SMSVerify
     /**
      * 发送验证码
      * @param $mobile
-     * @return mixed
+     * @return bool
+     * @throws SMSException
      */
-    public function sendVerifyCode($mobile)
+    public function sendVerifyCode($mobile): bool
     {
         $driver = config('verify.driver');
         $expiredAt = config('verify.expired_at');
@@ -40,28 +43,46 @@ class SMSVerify
      */
     public function checkVerifyCode($mobile, $code): bool
     {
-        $cache = Cache::get(self::cachePrefix . $mobile);
-        if ($cache == $code) {
-            Cache::forget(self::cachePrefix . $mobile);
+        $cacheKey = self::cachePrefix . $mobile;
+
+        $cacheCode = Cache::get($cacheKey);
+
+        if ($cacheCode == $code) {
+            Cache::forget($cacheKey);
             return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
     private function makeVerifyCode($mobile, $expiredAt): string
     {
-        $code = "";
-        $length = mt_rand(4, 6);
-        for ($i = 0; $i < $length; $i++) {
-            $code .= mt_rand(0, 9);
+        $ttl = now()->addMinutes($expiredAt);
+        $cacheKey = self::cachePrefix . $mobile;
+
+        if (Cache::has($cacheKey)) {
+            $code = Cache::get($cacheKey);
+        } else {
+
+            $code = "";
+            for ($i = 0; $i < 6; $i++) {
+                $code .= mt_rand(0, 9);
+            }
         }
 
-        Cache::put(self::cachePrefix . $mobile, $code, now()->addMinutes($expiredAt));
+        Cache::put($cacheKey, $code, $ttl);
 
         return $code;
     }
 
-    private function tencent(string $mobile, string $code, string $ttl)
+    /**
+     * @param string $mobile
+     * @param string $code
+     * @param string $ttl
+     * @return true
+     * @throws SMSException
+     */
+    private function tencent(string $mobile, string $code, string $ttl): bool
     {
         $cred = new Credential(
             config('verify.drivers.tencent.secret_id'),
@@ -85,7 +106,20 @@ class SMSVerify
 
         $request = new SendSmsRequest();
         $request->fromJsonString($params);
+        $response = $smsClient->sendSms($request);
 
-        return $smsClient->sendSms($request);
+        $status = $response->getSendStatusSet();
+        if (sizeof($status) > 0 && key_exists('Code', $status[0])) {
+
+            if ($status[0]['Code'] == 'Ok') {
+                return true;
+            } else {
+
+                $message = $status[0]['Message'];
+                throw new SMSException('腾讯云', $message);
+            }
+        }
+
+        throw new SMSException('腾讯云', "未知错误");
     }
 }

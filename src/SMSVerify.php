@@ -114,7 +114,7 @@ class SMSVerify
             if ($status[0]->getCode() == 'Ok') {
                 return true;
             } else {
-                throw new SMSException('腾讯云', $status[0]->getMessage());
+                throw new SMSException('腾讯云', $status[0]->getCode());
             }
         }
 
